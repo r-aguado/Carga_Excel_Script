@@ -107,12 +107,40 @@ def cargaViaAcceso():
         conn.commit()
         print(f"Hoja '{hoja.title}' procesada para VIA_ACCESO.")
 
+def cargaAutorizaciones():
+    cursor.execute("DELETE FROM lga_autorizaciones")
+
+    for nombre_hoja in wb.sheetnames:
+        hoja = wb[nombre_hoja]
+        id_modelo = nombre_hoja  # ID modelo viene del nombre de la hoja
+
+        for i, fila in enumerate(hoja.iter_rows(min_row=2, values_only=True), start=2):
+            cod_meyss = fila[9]   
+            id_permiso = fila[10]
+            id_via = fila[11]
+
+            # Saltar filas incompletas
+            if not cod_meyss or not id_permiso or not id_via or not id_modelo:
+                print(f"Fila {i} ignorada por campos vacíos (COD_MEYSS, ID_PERMISO, ID_VIA o ID_MODELO)")
+                continue
+
+            try:
+                cursor.execute(
+                    "INSERT INTO LGA_AUTORIZACIONES (COD_MEYSS, ID_PERMISO, ID_VIA, ID_MODELO) VALUES (?, ?, ?, ?)",
+                    (cod_meyss, id_permiso, id_via, id_modelo)
+                )
+            except IntegrityError as e:
+                print(f"Error insertando autorización en fila {i}: {e}")
+
+        conn.commit()
+        print(f"Hoja '{hoja.title}' procesada para AUTORIZACIONES.")
 
 def menu():
     print("Seleccione una opción:")
     print("1. Cargar Modelos")
     print("2. Cargar Permisos")
     print("3. Cargar Vías de Acceso")
+    print("4. Cargar Autorizaciones")
     print("0. Salir\n")
 
 def menuExcel():
@@ -127,6 +155,8 @@ def menuExcel():
             cargaPermisos()
         elif opcion == "3":
             cargaViaAcceso()
+        elif opcion == "4":
+            cargaAutorizaciones()
         elif opcion == "0":
             print("Saliendo del programa.")
             break
