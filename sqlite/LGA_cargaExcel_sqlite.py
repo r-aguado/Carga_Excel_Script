@@ -103,7 +103,7 @@ def cargaPermisos():
             lucrativo = normalizar_sn(fila[19])
             residencia = normalizar_sn(fila[18])
             via_defecto = fila[11]
-            meses_validez = fila[7]
+            # meses_validez = fila[7] añadire cuando se sepa cual es
             reglamento = fila[12]
 
             if not id_permiso or not des_permiso or not lucrativo:
@@ -111,9 +111,9 @@ def cargaPermisos():
                 continue
 
             try:
-                cursor.execute(
-                    "INSERT INTO LGA_PERMISOS (ID, DES_PERMISO, LUCRATIVO, RESIDENCIA, VIA_DEFECTO, MESES_VALIDEZ, REGLAMENTO) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    (id_permiso, des_permiso, lucrativo, residencia, via_defecto, meses_validez, reglamento)
+                cursor.execute( #añadir meses_validez cuando se sepa cual es
+                    "INSERT INTO LGA_PERMISOS (ID, DES_PERMISO, LUCRATIVO, RESIDENCIA, VIA_DEFECTO, REGLAMENTO) VALUES (?, ?, ?, ?, ?, ?)",
+                    (id_permiso, des_permiso, lucrativo, residencia, via_defecto, reglamento)
                 )
             except IntegrityError as e:
                 print(f"Error insertando {id_permiso} en fila {i}: {e}")
@@ -132,7 +132,7 @@ def cargaViaAcceso():
             id_via = fila[11]
             des_via = fila[5]
 
-            if not id_via or not des_via:
+            if not id_via:
                 print(f"Fila {i} ignorada por campos vacíos (ID o DES_VIA_ACCESO)")
                 continue
 
@@ -161,7 +161,7 @@ def cargaAutorizaciones():
             id_via = fila[11]
             silencio = fila[8]
 
-            #Procesar campo combinado (fila[7])
+            #Campo combinado numero y meses/dias
             num_plazo, tipo_plazo = normalizar_validez(fila[7])
 
             if not cod_meyss or not id_permiso or not id_via or not id_modelo:
