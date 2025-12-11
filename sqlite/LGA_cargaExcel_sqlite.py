@@ -3,6 +3,7 @@ import os
 from openpyxl import load_workbook
 import sqlite3
 from sqlite3 import IntegrityError
+import re
 
 
 def cortarPrograma(sig, frame):
@@ -29,20 +30,48 @@ conn = sqlite3.connect(os.path.join(db_dir, "formulario.sqlite"))
 cursor = conn.cursor()
 wb = load_workbook(fichero_permisos)
 
+# Función para normalizar el campo de validez
+
+def normalizar_validez(valor):
+    if not valor:
+        return None, None
+
+    v = str(valor).strip().lower()
+    numeros = re.findall(r"\d+", v)
+
+    if not numeros:
+        return None, None
+
+    num = numeros[0]
+
+    # MESES
+    if "mes" in v or "meses" in v or v.endswith("m"):
+        return num, "MESES"
+
+    # DÍAS
+    if "dia" in v or "dias" in v or "días" in v:
+        return num, "DÍAS"
+
+    # SOLO NÚMERO = DÍAS
+    if v.isdigit():
+        return num, "DÍAS"
+
+    return None, None
+
+
 def cargaModelos():
     cursor.execute("DELETE FROM lga_modelos")
     for nombre_hoja in wb.sheetnames:
-        id_formulario = nombre_hoja  # el ID viene del nombre de la hoja
-        des_modelo = ''               # vacío por ahora
+        id_formulario = nombre_hoja
+        des_modelo = ''
 
-        # Saltar si ID vacío por algún motivo
         if not id_formulario:
             print(f"Hoja ignorada por ID vacío: {nombre_hoja}")
             continue
 
         try:
             cursor.execute(
-                "INSERT INTO LGA_MODELOS (ID, DES_MODELO) VALUES (?, ?)",
+                "INSERT INTO LGA_MODELOS (ID, DES_MODELLO) VALUES (?, ?)",
                 (id_formulario, des_modelo)
             )
         except IntegrityError as e:
@@ -51,22 +80,22 @@ def cargaModelos():
     conn.commit()
     print("Todos los modelos procesados.")
 
+
 def cargaPermisos():
     cursor.execute("DELETE FROM lga_permisos")
     for nombre_hoja in wb.sheetnames:
         hoja = wb[nombre_hoja]
 
         for i, fila in enumerate(hoja.iter_rows(min_row=2, values_only=True), start=2):
-            id_permiso = fila[10]      
-            des_permiso = fila[3]    
+            id_permiso = fila[10]
+            des_permiso = fila[3]
             lucrativo = fila[19]
             residencia = fila[18]
             via_defecto = fila[11]
             meses_validez = fila[7]
             reglamento = fila[12]
 
-            # Saltar filas incompletas
-            if not id_permiso or not des_permiso or not lucrativo :
+            if not id_permiso or not des_permiso or not lucrativo:
                 print(f"Fila {i} ignorada por campos vacíos")
                 continue
 
@@ -81,6 +110,7 @@ def cargaPermisos():
         conn.commit()
         print(f"Hoja '{hoja.title}' procesada.")
 
+
 def cargaViaAcceso():
     cursor.execute("DELETE FROM lga_via_acceso")
 
@@ -88,10 +118,9 @@ def cargaViaAcceso():
         hoja = wb[nombre_hoja]
 
         for i, fila in enumerate(hoja.iter_rows(min_row=2, values_only=True), start=2):
-            id_via = fila[11]            
-            des_via = fila[5]            
+            id_via = fila[11]
+            des_via = fila[5]
 
-            # Saltar filas incompletas
             if not id_via or not des_via:
                 print(f"Fila {i} ignorada por campos vacíos (ID o DES_VIA_ACCESO)")
                 continue
@@ -107,33 +136,37 @@ def cargaViaAcceso():
         conn.commit()
         print(f"Hoja '{hoja.title}' procesada para VIA_ACCESO.")
 
+
 def cargaAutorizaciones():
     cursor.execute("DELETE FROM lga_autorizaciones")
 
     for nombre_hoja in wb.sheetnames:
         hoja = wb[nombre_hoja]
-        id_modelo = nombre_hoja  # ID modelo viene del nombre de la hoja
+        id_modelo = nombre_hoja
 
         for i, fila in enumerate(hoja.iter_rows(min_row=2, values_only=True), start=2):
-            cod_meyss = fila[9]   
+            cod_meyss = fila[9]
             id_permiso = fila[10]
             id_via = fila[11]
 
-            # Saltar filas incompletas
+            #Procesar campo combinado (fila[7])
+            num_plazo, tipo_plazo = normalizar_validez(fila[7])
+
             if not cod_meyss or not id_permiso or not id_via or not id_modelo:
-                print(f"Fila {i} ignorada por campos vacíos (COD_MEYSS, ID_PERMISO, ID_VIA o ID_MODELO)")
+                print(f"Fila {i} ignorada por campos vacíos")
                 continue
 
             try:
                 cursor.execute(
-                    "INSERT INTO LGA_AUTORIZACIONES (COD_MEYSS, ID_PERMISO, ID_VIA, ID_MODELO) VALUES (?, ?, ?, ?)",
-                    (cod_meyss, id_permiso, id_via, id_modelo)
+                    "INSERT INTO LGA_AUTORIZACIONES (COD_MEYSS, ID_PERMISO, ID_VIA, ID_MODELO, NUM_PLAZO, TIPO_PLAZO) VALUES (?, ?, ?, ?, ?, ?)",
+                    (cod_meyss, id_permiso, id_via, id_modelo, num_plazo, tipo_plazo)
                 )
             except IntegrityError as e:
                 print(f"Error insertando autorización en fila {i}: {e}")
 
         conn.commit()
         print(f"Hoja '{hoja.title}' procesada para AUTORIZACIONES.")
+
 
 def menu():
     print("Seleccione una opción:")
@@ -143,15 +176,14 @@ def menu():
     print("4. Cargar Autorizaciones")
     print("0. Salir\n")
 
+
 def menuExcel():
-      while True:
+    while True:
         menu()
         opcion = input("Ingrese el número de la opción: ")
-        if opcion == "1": 
-            # Cargar Modelos
+        if opcion == "1":
             cargaModelos()
         elif opcion == "2":
-            # Cargar Permisos
             cargaPermisos()
         elif opcion == "3":
             cargaViaAcceso()
@@ -163,6 +195,7 @@ def menuExcel():
         else:
             print("Opción no válida. Intente de nuevo.\n")
             continue
+
 
 if __name__ == "__main__":
     menuExcel()
