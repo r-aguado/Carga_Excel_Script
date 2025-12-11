@@ -58,6 +58,17 @@ def normalizar_validez(valor):
 
     return None, None
 
+# Función para normalizar campos S/N
+
+def normalizar_sn(valor):
+    if not valor:
+        return "N"  # vacío = NO
+
+    v = str(valor).strip().lower()
+    if v == "n/a":
+        return "N"
+    return "S"
+
 
 def cargaModelos():
     cursor.execute("DELETE FROM lga_modelos")
@@ -71,7 +82,7 @@ def cargaModelos():
 
         try:
             cursor.execute(
-                "INSERT INTO LGA_MODELOS (ID, DES_MODELLO) VALUES (?, ?)",
+                "INSERT INTO LGA_MODELOS (ID, DES_MODELO) VALUES (?, ?)",
                 (id_formulario, des_modelo)
             )
         except IntegrityError as e:
@@ -89,8 +100,8 @@ def cargaPermisos():
         for i, fila in enumerate(hoja.iter_rows(min_row=2, values_only=True), start=2):
             id_permiso = fila[10]
             des_permiso = fila[3]
-            lucrativo = fila[19]
-            residencia = fila[18]
+            lucrativo = normalizar_sn(fila[19])
+            residencia = normalizar_sn(fila[18])
             via_defecto = fila[11]
             meses_validez = fila[7]
             reglamento = fila[12]
@@ -148,6 +159,7 @@ def cargaAutorizaciones():
             cod_meyss = fila[9]
             id_permiso = fila[10]
             id_via = fila[11]
+            silencio = fila[8]
 
             #Procesar campo combinado (fila[7])
             num_plazo, tipo_plazo = normalizar_validez(fila[7])
@@ -158,8 +170,8 @@ def cargaAutorizaciones():
 
             try:
                 cursor.execute(
-                    "INSERT INTO LGA_AUTORIZACIONES (COD_MEYSS, ID_PERMISO, ID_VIA, ID_MODELO, NUM_PLAZO, TIPO_PLAZO) VALUES (?, ?, ?, ?, ?, ?)",
-                    (cod_meyss, id_permiso, id_via, id_modelo, num_plazo, tipo_plazo)
+                    "INSERT INTO LGA_AUTORIZACIONES (COD_MEYSS, ID_PERMISO, ID_VIA, ID_MODELO, NUM_PLAZO, TIPO_PLAZO, SILENCIO) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (cod_meyss, id_permiso, id_via, id_modelo, num_plazo, tipo_plazo, silencio)
                 )
             except IntegrityError as e:
                 print(f"Error insertando autorización en fila {i}: {e}")
