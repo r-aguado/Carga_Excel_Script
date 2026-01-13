@@ -145,6 +145,8 @@ def cargaAutorizaciones():
             id_permiso = fila[10]
             id_via = fila[11]
             silencio = fila[8]
+            epigrafe_tasa_052 = fila[18]
+            epigrafe_tasa_062 = fila[19]
 
             num_plazo, tipo_plazo = normalizar_validez(fila[7])
 
@@ -155,10 +157,10 @@ def cargaAutorizaciones():
                 cursor.execute(
                     """
                     INSERT INTO lga_autorizaciones
-                    (COD_MEYSS, ID_PERMISO, ID_VIA, ID_MODELO, NUM_PLAZO, TIPO_PLAZO, SILENCIO)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    (COD_MEYSS, ID_PERMISO, ID_VIA, ID_MODELO, NUM_PLAZO, TIPO_PLAZO, SILENCIO, EPIGRAFE_TASA_052, EPIGRAFE_TASA_062)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
-                    (cod_meyss, id_permiso, id_via, id_modelo, num_plazo, tipo_plazo, silencio)
+                    (cod_meyss, id_permiso, id_via, id_modelo, num_plazo, tipo_plazo, silencio, epigrafe_tasa_052, epigrafe_tasa_062)
                 )
             except Error as e:
                 print(f"Error autorización fila {i}: {e}")
