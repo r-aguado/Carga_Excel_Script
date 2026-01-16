@@ -3,8 +3,8 @@ import os
 from openpyxl import load_workbook
 import re
 import mysql.connector
+import unicodedata
 from mysql.connector import Error
-
 from db.connection import get_connection
 
 
@@ -56,6 +56,53 @@ def normalizar_sn(valor):
 
     v = str(valor).strip().lower()
     return "N" if v == "n/a" else "S"
+
+
+def calcular_dos_veces_smi(valor):
+    if valor is None:
+        return "N"
+
+    texto = str(valor).strip()
+
+    if texto == "":
+        return "N"
+    
+    # Detecta 3.2 / 3.2.1 / 10.4.3 dentro del texto
+    if re.search(r'\d+(?:\.\d+)+', texto):
+        return "S"
+
+    return "N"
+
+
+def normalizar_autoriza_trabajar(valor):
+    if not valor:
+        return "N"
+
+    # Convertir a string
+    v = str(valor).strip().lower()
+
+    # Quitar tildes
+    v = ''.join(
+        c for c in unicodedata.normalize('NFD', v)
+        if unicodedata.category(c) != 'Mn'
+    )
+
+    # Casos NO claros
+    if v in {"no", "/"}:
+        return "N"
+
+    # Si empieza por "si"
+    if v.startswith("si"):
+        return "S"
+
+    # Casos laborales explícitos
+    if "cuenta ajena" in v or "c/a" in v or "c/p" in v:
+        return "S"
+
+    # Por defecto
+    return "N"
+
+
 
 # Carga de datos
 
@@ -118,7 +165,7 @@ def cargaViaAcceso():
             id_via = fila[11]
             des_via = fila[5]
 
-            if not id_via or not des_via:
+            if not id_via:
                 continue
 
             try:
@@ -147,6 +194,8 @@ def cargaAutorizaciones():
             silencio = fila[8]
             epigrafe_tasa_052 = fila[18]
             epigrafe_tasa_062 = fila[19]
+            dos_veces_smi = calcular_dos_veces_smi(fila[20])
+            autoriza_trabajar = normalizar_autoriza_trabajar(fila[21])
 
             num_plazo, tipo_plazo = normalizar_validez(fila[7])
 
@@ -157,16 +206,31 @@ def cargaAutorizaciones():
                 cursor.execute(
                     """
                     INSERT INTO lga_autorizaciones
-                    (COD_MEYSS, ID_PERMISO, ID_VIA, ID_MODELO, NUM_PLAZO, TIPO_PLAZO, SILENCIO, EPIGRAFE_TASA_052, EPIGRAFE_TASA_062)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    (COD_MEYSS, ID_PERMISO, ID_VIA, ID_MODELO,
+                     NUM_PLAZO, TIPO_PLAZO, SILENCIO,
+                     EPIGRAFE_TASA_052, EPIGRAFE_TASA_062, DOS_VECES_SMI, AUTORIZA_TRABAJAR)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
-                    (cod_meyss, id_permiso, id_via, id_modelo, num_plazo, tipo_plazo, silencio, epigrafe_tasa_052, epigrafe_tasa_062)
+                    (
+                        cod_meyss,
+                        id_permiso,
+                        id_via,
+                        id_modelo,
+                        num_plazo,
+                        tipo_plazo,
+                        silencio,
+                        epigrafe_tasa_052,
+                        epigrafe_tasa_062,
+                        dos_veces_smi, 
+                        autoriza_trabajar
+                    )
                 )
             except Error as e:
                 print(f"Error autorización fila {i}: {e}")
 
     conn.commit()
-    print("Autorizaciones cargadas")
+    print("Autorizaciones cargadas correctamente")
+
 
 
 # Menú
