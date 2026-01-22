@@ -102,6 +102,69 @@ def normalizar_autoriza_trabajar(valor):
     # Por defecto
     return "N"
 
+import unicodedata
+import re
+import math
+
+def normalizar_duracion(valor):
+    # Vacío
+    if not valor:
+        return "DE"
+
+    v = str(valor).strip().lower()
+
+    # Quitar tildes
+    v = unicodedata.normalize("NFD", v)
+    v = "".join(c for c in v if unicodedata.category(c) != "Mn")
+
+    # Normalizaciones rápidas
+    if v in ("?", "-", "=", "= titular"):
+        return "DE"
+
+    # Indefinidos (IN)
+    palabras_in = [
+        "max", "maximo", "hasta", "menos", "plurianual",
+        "<", ">", "indefin", "minimo", "limite"
+    ]
+
+    if any(p in v for p in palabras_in):
+        return "IN"
+
+    if "360" in v and "dia" in v:
+        return "IN"
+
+    # Desconocidos (DE)
+    palabras_de = [
+        "igual", "reagrupante", "autorizacion",
+        "titular", "tratamiento medico", "no definida"
+    ]
+
+    if any(p in v for p in palabras_de):
+        return "DE"
+
+    # Extraer números
+    numeros = re.findall(r"\d+", v)
+    if not numeros:
+        return "DE"
+
+    num = int(numeros[0])
+
+    # Años a meses
+    if "ano" in v or "año" in v:
+        meses = num * 12
+        return f"{meses:02d}"
+
+    # Meses directos
+    if "mes" in v:
+        return f"{num:02d}" if 1 <= num <= 12 else "IN"
+
+    # Dias a meses
+    if "dia" in v:
+        meses = math.ceil(num / 30)
+        return f"{meses:02d}" if 1 <= meses <= 12 else "IN"
+
+    return "DE"
+
 
 
 # Carga de datos
@@ -196,6 +259,8 @@ def cargaAutorizaciones():
             epigrafe_tasa_062 = fila[19]
             dos_veces_smi = calcular_dos_veces_smi(fila[20])
             autoriza_trabajar = normalizar_autoriza_trabajar(fila[21])
+            duracion = normalizar_duracion(fila[22])
+
 
             num_plazo, tipo_plazo = normalizar_validez(fila[7])
 
@@ -208,8 +273,8 @@ def cargaAutorizaciones():
                     INSERT INTO lga_autorizaciones
                     (COD_MEYSS, ID_PERMISO, ID_VIA, ID_MODELO,
                      NUM_PLAZO, TIPO_PLAZO, SILENCIO,
-                     EPIGRAFE_TASA_052, EPIGRAFE_TASA_062, DOS_VECES_SMI, AUTORIZA_TRABAJAR)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                     EPIGRAFE_TASA_052, EPIGRAFE_TASA_062, DOS_VECES_SMI, AUTORIZA_TRABAJAR, DURACION)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (
                         cod_meyss,
@@ -222,7 +287,8 @@ def cargaAutorizaciones():
                         epigrafe_tasa_052,
                         epigrafe_tasa_062,
                         dos_veces_smi, 
-                        autoriza_trabajar
+                        autoriza_trabajar,
+                        duracion
                     )
                 )
             except Error as e:
@@ -230,8 +296,6 @@ def cargaAutorizaciones():
 
     conn.commit()
     print("Autorizaciones cargadas correctamente")
-
-
 
 # Menú
 
